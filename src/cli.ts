@@ -455,7 +455,7 @@ async function processFile(filePath: string, userInputs: UserInputs): Promise<bo
 
                 // Update homepage
                 if (packageJson.homepage && userInputs.USERNAME && userInputs.PROJECT_NAME) {
-                    packageJson.homepage = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}#readme`;
+                    packageJson.homepage = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}`;
                     hasChanges = true;
                 }
 
