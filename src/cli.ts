@@ -32,6 +32,13 @@ interface UserInputs {
     [key: string]: string;
 }
 
+interface PlaceholderStats {
+    [key: string]: {
+        count: number;
+        replacement: string;
+    };
+}
+
 async function main() {
     console.log(chalk.cyan('🚀 Welcome to gen-from!'));
     console.log(chalk.dim('Generate projects from GitHub template repositories\n'));
@@ -39,6 +46,14 @@ async function main() {
     try {
         // Parse command line arguments
         const args = process.argv.slice(2);
+
+        // Handle version command
+        if (args.includes('--version') || args.includes('-v')) {
+            const pkg = await fs.readJson(path.join(__dirname, '..', 'package.json'));
+            console.log(pkg.version);
+            process.exit(0);
+        }
+
         const templateArg = args[0];
         const isHereFlag = args.includes('--here');
 
@@ -247,16 +262,70 @@ async function downloadTemplate(repoName: string, targetDir: string): Promise<vo
 }
 
 async function processFiles(targetDir: string, userInputs: UserInputs): Promise<void> {
-    console.log(chalk.dim('Processing template files...'));
+    console.log(chalk.dim('\nProcessing template files...'));
 
     // Get all files recursively
     const files = await getAllFiles(targetDir);
 
-    for (const filePath of files) {
-        await processFile(filePath, userInputs);
+    // First pass: count placeholders across all files
+    const placeholderStats: PlaceholderStats = {};
+
+    for (const [key, value] of Object.entries(userInputs)) {
+        placeholderStats[key] = {
+            count: 0,
+            replacement: value
+        };
     }
 
-    console.log(chalk.green('✓ Files processed'));
+    // Count placeholders in all files
+    for (const filePath of files) {
+        if (!isBinaryFile(filePath)) {
+            try {
+                const content = await fs.readFile(filePath, 'utf-8');
+                for (const key of Object.keys(userInputs)) {
+                    const placeholder = `{{${key}}}`;
+                    const matches = content.match(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'));
+                    if (matches) {
+                        placeholderStats[key].count += matches.length;
+                    }
+                }
+            } catch (error) {
+                // Skip files that can't be read
+            }
+        }
+    }
+
+    // Show placeholder replacement summary
+    console.log(chalk.yellow('\nPlaceholder replacement summary:'));
+    let hasReplacements = false;
+
+    for (const [key, stats] of Object.entries(placeholderStats)) {
+        if (stats.count > 0) {
+            console.log(chalk.cyan(`  ${key}`) + chalk.dim(` => Found ${stats.count} occurrence${stats.count === 1 ? '' : 's'} => Replacing with `) + chalk.green(`"${stats.replacement}"`));
+            hasReplacements = true;
+        }
+    }
+
+    if (!hasReplacements) {
+        console.log(chalk.dim('  No placeholders found in template files'));
+    }
+
+    console.log(''); // Empty line for spacing
+
+    // Second pass: actually replace the placeholders
+    let filesProcessed = 0;
+    for (const filePath of files) {
+        const wasModified = await processFile(filePath, userInputs);
+        if (wasModified) {
+            filesProcessed++;
+        }
+    }
+
+    if (hasReplacements && filesProcessed > 0) {
+        console.log(chalk.green(`✓ ${filesProcessed} file${filesProcessed === 1 ? '' : 's'} processed`));
+    } else {
+        console.log(chalk.green('✓ Template files copied'));
+    }
 }
 
 async function getAllFiles(dir: string): Promise<string[]> {
@@ -284,11 +353,11 @@ async function getAllFiles(dir: string): Promise<string[]> {
     return files;
 }
 
-async function processFile(filePath: string, userInputs: UserInputs): Promise<void> {
+async function processFile(filePath: string, userInputs: UserInputs): Promise<boolean> {
     try {
         // Skip binary files
         if (isBinaryFile(filePath)) {
-            return;
+            return false;
         }
 
         let content = await fs.readFile(filePath, 'utf-8');
@@ -317,8 +386,11 @@ async function processFile(filePath: string, userInputs: UserInputs): Promise<vo
         if (hasChanges) {
             await fs.writeFile(filePath, content, 'utf-8');
         }
+
+        return hasChanges;
     } catch (error) {
         console.warn(chalk.yellow(`⚠ Warning: Could not process file ${filePath}: ${error}`));
+        return false;
     }
 }
 
