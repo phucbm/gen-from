@@ -1,4 +1,4 @@
-import { defineConfig } from 'tsup';
+import {defineConfig} from 'tsup';
 
 export default defineConfig({
     entry: ['src/cli.ts'],
@@ -11,7 +11,5 @@ export default defineConfig({
     sourcemap: false,
     dts: false,
     clean: true,
-    banner: {
-        js: '#!/usr/bin/env node'
-    }
+    banner: {}
 });
