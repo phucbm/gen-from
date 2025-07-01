@@ -546,3 +546,15 @@ async function hasExistingFiles(dir: string): Promise<boolean> {
 }
 
 main().catch(console.error);
+
+
+// Add these exports at the end of cli.ts
+export {
+    loadConfig,
+    selectTemplate,
+    validateTemplate,
+    collectInputs,
+    suggestPackageName,
+    processFile,
+    hasExistingFiles
+};

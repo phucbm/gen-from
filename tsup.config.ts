@@ -1,4 +1,5 @@
 import {defineConfig} from 'tsup';
+import {generateBanner} from "@phucbm/banner";
 
 export default defineConfig({
     entry: ['src/cli.ts'],
@@ -7,9 +8,11 @@ export default defineConfig({
     target: 'es2020',
     platform: 'node',
     bundle: true,
-    minify: false,
+    minify: true,
     sourcemap: false,
     dts: false,
     clean: true,
-    banner: {}
+    banner: {
+        js: generateBanner()
+    }
 });
