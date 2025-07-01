@@ -1,5 +1,12 @@
 # gen-from
 
+[![npm version](https://badgen.net/npm/v/gen-from?icon=npm)](https://www.npmjs.com/package/gen-from)
+[![npm downloads](https://badgen.net/npm/dm/gen-from?icon=npm)](https://www.npmjs.com/package/gen-from)
+[![npm dependents](https://badgen.net/npm/dependents/gen-from?icon=npm)](https://www.npmjs.com/package/gen-from)
+[![github stars](https://badgen.net/github/stars/phucbm/gen-from?icon=github)](https://github.com/phucbm/gen-from/)
+[![github license](https://badgen.net/github/license/phucbm/gen-from?icon=github)](https://github.com/phucbm/gen-from/blob/main/LICENSE)
+[![Made in Vietnam](https://raw.githubusercontent.com/webuild-community/badge/master/svg/made.svg)](https://webuild.community)
+
 CLI tool to generate projects from GitHub template repositories using tiged.
 
 ## Installation
