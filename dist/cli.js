@@ -31,7 +31,20 @@ async function main() {
     }
     const targetDir = isHereFlag ? "." : userInputs.PROJECT_NAME;
     if (!isHereFlag && await fs.pathExists(targetDir)) {
-      throw new Error(`Directory ${targetDir} already exists`);
+      const shouldReplace = await promptForReplacement(targetDir);
+      if (!shouldReplace) {
+        console.log(chalk.yellow("\u274C Operation cancelled"));
+        process.exit(0);
+      }
+    } else if (isHereFlag) {
+      const hasFiles = await hasExistingFiles(".");
+      if (hasFiles) {
+        const shouldReplace = await promptForReplacement(".", true);
+        if (!shouldReplace) {
+          console.log(chalk.yellow("\u274C Operation cancelled"));
+          process.exit(0);
+        }
+      }
     }
     await downloadTemplate(selectedTemplate.repo, targetDir);
     await processFiles(targetDir, userInputs);
@@ -69,16 +82,21 @@ async function loadConfig() {
 }
 async function selectTemplate(templates, templateArg) {
   if (templateArg) {
-    const found = templates.find((t) => t.name === templateArg || t.repo === templateArg);
-    if (!found) {
-      console.log(chalk.red(`\u274C Template "${templateArg}" not found`));
-      console.log(chalk.yellow("Available templates:"));
-      templates.forEach((t) => {
-        console.log(`  \u2022 ${chalk.cyan(t.name)} - ${chalk.dim(t.description)}`);
-      });
-      return null;
+    let repoPath;
+    if (templateArg.includes("/")) {
+      repoPath = templateArg;
+    } else {
+      repoPath = `phucbm/${templateArg}`;
     }
-    return found;
+    const found = templates.find((t) => t.name === templateArg || t.repo === templateArg || t.repo === repoPath);
+    if (found) {
+      return found;
+    }
+    return {
+      name: templateArg,
+      description: `Template from ${repoPath}`,
+      repo: repoPath
+    };
   }
   console.log(chalk.yellow("Available templates:"));
   const choices = templates.map((template) => ({
@@ -228,5 +246,26 @@ function isBinaryFile(filePath) {
   ];
   const ext = path.extname(filePath).toLowerCase();
   return binaryExtensions.includes(ext);
+}
+async function promptForReplacement(targetPath, isCurrentDir = false) {
+  const message = isCurrentDir ? "Current directory contains files. This will overwrite existing files. Continue?" : `Directory "${targetPath}" already exists. This will overwrite existing files. Continue?`;
+  const response = await prompts({
+    type: "confirm",
+    name: "replace",
+    message,
+    initial: false
+  });
+  return response.replace || false;
+}
+async function hasExistingFiles(dir) {
+  try {
+    const items = await fs.readdir(dir);
+    const relevantFiles = items.filter(
+      (item) => !item.startsWith(".") && item !== "node_modules" && item !== "package-lock.json" && item !== "yarn.lock"
+    );
+    return relevantFiles.length > 0;
+  } catch {
+    return false;
+  }
 }
 main().catch(console.error);
