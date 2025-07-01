@@ -66,8 +66,22 @@ async function main() {
         // Determine target directory
         const targetDir = isHereFlag ? '.' : userInputs.PROJECT_NAME;
 
+        // Check for existing files and prompt for replacement
         if (!isHereFlag && await fs.pathExists(targetDir)) {
-            throw new Error(`Directory ${targetDir} already exists`);
+            const shouldReplace = await promptForReplacement(targetDir);
+            if (!shouldReplace) {
+                console.log(chalk.yellow('❌ Operation cancelled'));
+                process.exit(0);
+            }
+        } else if (isHereFlag) {
+            const hasFiles = await hasExistingFiles('.');
+            if (hasFiles) {
+                const shouldReplace = await promptForReplacement('.', true);
+                if (!shouldReplace) {
+                    console.log(chalk.yellow('❌ Operation cancelled'));
+                    process.exit(0);
+                }
+            }
         }
 
         // Download template
@@ -119,16 +133,27 @@ async function loadConfig(): Promise<Config> {
 
 async function selectTemplate(templates: Template[], templateArg?: string): Promise<Template | null> {
     if (templateArg) {
-        const found = templates.find(t => t.name === templateArg || t.repo === templateArg);
-        if (!found) {
-            console.log(chalk.red(`❌ Template "${templateArg}" not found`));
-            console.log(chalk.yellow('Available templates:'));
-            templates.forEach(t => {
-                console.log(`  • ${chalk.cyan(t.name)} - ${chalk.dim(t.description)}`);
-            });
-            return null;
+        // Check if it's a user/repo format or just repo name
+        let repoPath: string;
+        if (templateArg.includes('/')) {
+            repoPath = templateArg;
+        } else {
+            // Default to phucbm/ prefix for backward compatibility
+            repoPath = `phucbm/${templateArg}`;
         }
-        return found;
+
+        // Try to find in templates list first
+        const found = templates.find(t => t.name === templateArg || t.repo === templateArg || t.repo === repoPath);
+        if (found) {
+            return found;
+        }
+
+        // If not in templates list, create a template object for the repo
+        return {
+            name: templateArg,
+            description: `Template from ${repoPath}`,
+            repo: repoPath
+        };
     }
 
     // Show template selection
@@ -307,6 +332,37 @@ function isBinaryFile(filePath: string): boolean {
 
     const ext = path.extname(filePath).toLowerCase();
     return binaryExtensions.includes(ext);
+}
+
+async function promptForReplacement(targetPath: string, isCurrentDir = false): Promise<boolean> {
+    const message = isCurrentDir
+        ? 'Current directory contains files. This will overwrite existing files. Continue?'
+        : `Directory "${targetPath}" already exists. This will overwrite existing files. Continue?`;
+
+    const response = await prompts({
+        type: 'confirm',
+        name: 'replace',
+        message,
+        initial: false
+    });
+
+    return response.replace || false;
+}
+
+async function hasExistingFiles(dir: string): Promise<boolean> {
+    try {
+        const items = await fs.readdir(dir);
+        // Filter out hidden files and common non-project files
+        const relevantFiles = items.filter(item =>
+            !item.startsWith('.') &&
+            item !== 'node_modules' &&
+            item !== 'package-lock.json' &&
+            item !== 'yarn.lock'
+        );
+        return relevantFiles.length > 0;
+    } catch {
+        return false;
+    }
 }
 
 main().catch(console.error);

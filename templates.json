@@ -3,15 +3,5 @@
     "name": "npm-utils-template",
     "description": "TypeScript npm utility package with Jest, tsup, and ESM support",
     "repo": "phucbm/npm-utils-template"
-  },
-  {
-    "name": "react-component-template",
-    "description": "React component library with Storybook and testing",
-    "repo": "phucbm/react-component-template"
-  },
-  {
-    "name": "node-api-template",
-    "description": "Node.js REST API with Express and TypeScript",
-    "repo": "phucbm/node-api-template"
   }
 ]
