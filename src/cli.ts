@@ -406,56 +406,69 @@ async function processFile(filePath: string, userInputs: UserInputs): Promise<bo
 
         // Special handling for package.json
         if (path.basename(filePath) === 'package.json') {
-            // Parse package.json to handle it properly
             try {
                 const packageJson = JSON.parse(content);
 
                 // Replace package name
-                if (packageJson.name && userInputs.PACKAGE_NAME) {
+                if (userInputs.PACKAGE_NAME) {
                     packageJson.name = userInputs.PACKAGE_NAME;
                     hasChanges = true;
                 }
 
-                // Replace author
-                if (packageJson.author && userInputs.USERNAME) {
-                    packageJson.author = userInputs.USERNAME;
+                // Update author fields only if they exist and we have values
+                if (packageJson.author && typeof packageJson.author === 'object') {
+                    if (userInputs.AUTHOR_NAME && packageJson.author.name) {
+                        packageJson.author.name = userInputs.AUTHOR_NAME;
+                        hasChanges = true;
+                    }
+                    if (userInputs.USERNAME && packageJson.author.url) {
+                        packageJson.author.url = `https://github.com/${userInputs.USERNAME}`;
+                        hasChanges = true;
+                    }
+                } else if (packageJson.author && typeof packageJson.author === 'string' && userInputs.AUTHOR_NAME) {
+                    packageJson.author = userInputs.AUTHOR_NAME;
                     hasChanges = true;
                 }
 
-                // Set keywords based on project name and make it TypeScript-related
-                if (packageJson.keywords) {
-                    packageJson.keywords = [
+                // Update repository URL only if it exists
+                if (packageJson.repository && userInputs.USERNAME && userInputs.PROJECT_NAME) {
+                    if (typeof packageJson.repository === 'string') {
+                        packageJson.repository = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}`;
+                        hasChanges = true;
+                    } else if (packageJson.repository.url) {
+                        packageJson.repository.url = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}`;
+                        hasChanges = true;
+                    }
+                }
+
+                // Update bugs URL only if it exists
+                if (packageJson.bugs && userInputs.USERNAME && userInputs.PROJECT_NAME) {
+                    if (typeof packageJson.bugs === 'string') {
+                        packageJson.bugs = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}/issues`;
+                        hasChanges = true;
+                    } else if (packageJson.bugs.url) {
+                        packageJson.bugs.url = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}/issues`;
+                        hasChanges = true;
+                    }
+                }
+
+                // Update homepage only if it exists
+                if (packageJson.homepage && userInputs.USERNAME && userInputs.PROJECT_NAME) {
+                    packageJson.homepage = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}`;
+                    hasChanges = true;
+                }
+
+                // Update keywords only if they exist - merge instead of replace
+                if (packageJson.keywords && Array.isArray(packageJson.keywords) && userInputs.PROJECT_NAME) {
+                    const newKeywords = [
                         'typescript',
                         'javascript',
                         userInputs.PROJECT_NAME.toLowerCase(),
                         'utility'
                     ];
-                    hasChanges = true;
-                }
 
-                // Update repository URL
-                if (packageJson.repository && userInputs.USERNAME && userInputs.PROJECT_NAME) {
-                    if (typeof packageJson.repository === 'string') {
-                        packageJson.repository = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}`;
-                    } else if (packageJson.repository.url) {
-                        packageJson.repository.url = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}`;
-                    }
-                    hasChanges = true;
-                }
-
-                // Update bugs URL
-                if (packageJson.bugs && userInputs.USERNAME && userInputs.PROJECT_NAME) {
-                    if (typeof packageJson.bugs === 'string') {
-                        packageJson.bugs = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}/issues`;
-                    } else if (packageJson.bugs.url) {
-                        packageJson.bugs.url = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}/issues`;
-                    }
-                    hasChanges = true;
-                }
-
-                // Update homepage
-                if (packageJson.homepage && userInputs.USERNAME && userInputs.PROJECT_NAME) {
-                    packageJson.homepage = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}`;
+                    // Merge existing keywords with new ones, remove duplicates
+                    packageJson.keywords = [...new Set([...packageJson.keywords, ...newKeywords])];
                     hasChanges = true;
                 }
 
