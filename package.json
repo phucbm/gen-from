@@ -1,0 +1,52 @@
+{
+  "name": "gen-from",
+  "version": "0.0.0",
+  "description": "CLI tool to generate projects from GitHub template repositories",
+  "type": "module",
+  "bin": {
+    "gen-from": "./dist/cli.js"
+  },
+  "files": [
+    "dist/**/*",
+    "templates.json",
+    "placeholders.json"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "cli",
+    "scaffold",
+    "template",
+    "generator",
+    "tiged",
+    "github"
+  ],
+  "author": {
+    "name": "phucbm",
+    "url": "https://github.com/phucbm"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/phucbm/gen-from.git"
+  },
+  "bugs": {
+    "url": "https://github.com/phucbm/gen-from/issues"
+  },
+  "homepage": "https://github.com/phucbm/gen-from#readme",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "fs-extra": "^11.2.0",
+    "prompts": "^2.4.2",
+    "tiged": "^2.12.7"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/prompts": "^2.4.9",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3"
+  }
+}
