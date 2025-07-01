@@ -1,5 +1,6 @@
 # gen-from
 
+[![Publish on Release](https://github.com/phucbm/gen-from/actions/workflows/publish.yml/badge.svg)](https://github.com/phucbm/gen-from/actions/workflows/publish.yml)
 [![npm version](https://badgen.net/npm/v/gen-from?icon=npm)](https://www.npmjs.com/package/gen-from)
 [![npm downloads](https://badgen.net/npm/dm/gen-from?icon=npm)](https://www.npmjs.com/package/gen-from)
 [![npm dependents](https://badgen.net/npm/dependents/gen-from?icon=npm)](https://www.npmjs.com/package/gen-from)
