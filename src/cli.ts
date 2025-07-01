@@ -40,8 +40,11 @@ interface PlaceholderStats {
 }
 
 async function main() {
-    console.log(chalk.cyan('🚀 Welcome to gen-from!'));
-    console.log(chalk.dim('Generate projects from GitHub template repositories\n'));
+    // Load package.json for version and description
+    const pkg = await fs.readJson(path.join(__dirname, '..', 'package.json'));
+
+    console.log(chalk.cyan(`🚀 Welcome to gen-from v${pkg.version}!`));
+    console.log(chalk.dim(`${pkg.description}\n`));
 
     try {
         // Parse command line arguments
@@ -49,7 +52,6 @@ async function main() {
 
         // Handle version command
         if (args.includes('--version') || args.includes('-v')) {
-            const pkg = await fs.readJson(path.join(__dirname, '..', 'package.json'));
             console.log(pkg.version);
             process.exit(0);
         }
