@@ -80,6 +80,14 @@ async function main() {
             process.exit(1);
         }
 
+        // Ask for package name suggestion
+        const packageName = await suggestPackageName(userInputs.USERNAME, userInputs.PROJECT_NAME);
+        if (!packageName) {
+            console.log(chalk.red('❌ Setup cancelled'));
+            process.exit(1);
+        }
+        userInputs.PACKAGE_NAME = packageName;
+
         // Determine target directory
         const targetDir = isHereFlag ? '.' : userInputs.PROJECT_NAME;
 
@@ -112,14 +120,14 @@ async function main() {
         console.log(`\n${chalk.yellow('Next steps:')}`);
 
         if (isHereFlag) {
-            console.log('  npm install');
+            console.log('  pnpm install');
         } else {
             console.log(`  cd ${userInputs.PROJECT_NAME}`);
-            console.log('  npm install');
+            console.log('  pnpm install');
         }
 
-        console.log('  npm run build');
-        console.log('  npm test\n');
+        console.log('  pnpm build');
+        console.log('  pnpm test\n');
 
     } catch (error) {
         console.error(chalk.red('❌ Error:'), error instanceof Error ? error.message : error);
@@ -208,42 +216,73 @@ async function validateTemplate(repoName: string): Promise<void> {
 async function collectInputs(placeholders: Placeholder[]): Promise<UserInputs | null> {
     console.log(chalk.yellow('\nProvide project information:'));
 
-    const questions = placeholders.map(placeholder => {
-        let defaultValue = placeholder.default;
+    const questions = placeholders.map(placeholder => ({
+        type: 'text' as const,
+        name: placeholder.key,
+        message: placeholder.prompt,
+        initial: placeholder.default,
+        validate: (value: string) => {
+            if (placeholder.required && !value.trim()) {
+                return `${placeholder.key} is required`;
+            }
+            return true;
+        }
+    }));
 
-        return {
-            type: 'text' as const,
-            name: placeholder.key,
-            message: placeholder.prompt,
-            initial: defaultValue,
+    const response = await prompts(questions);
+
+    // Check if user cancelled (any required field is undefined)
+    for (const placeholder of placeholders) {
+        if (placeholder.required && response[placeholder.key] === undefined) {
+            return null;
+        }
+    }
+
+    return response;
+}
+
+async function suggestPackageName(username: string, projectName: string): Promise<string | null> {
+    const suggestions = [
+        projectName,
+        `@${username}/${projectName}`,
+        'Use different name'
+    ];
+
+    const choices = suggestions.map((suggestion, index) => ({
+        title: index === 2 ? chalk.dim(suggestion) : suggestion,
+        value: suggestion
+    }));
+
+    const response = await prompts({
+        type: 'select',
+        name: 'packageName',
+        message: 'Choose package name:',
+        choices,
+        initial: 1 // Default to @username/project-name
+    });
+
+    if (!response.packageName) {
+        return null;
+    }
+
+    if (response.packageName === 'Use different name') {
+        const customResponse = await prompts({
+            type: 'text',
+            name: 'customPackageName',
+            message: 'Enter package name:',
+            initial: `@${username}/${projectName}`,
             validate: (value: string) => {
-                if (placeholder.required && !value.trim()) {
-                    return `${placeholder.key} is required`;
+                if (!value.trim()) {
+                    return 'Package name is required';
                 }
                 return true;
             }
-        };
-    });
+        });
 
-    // Process questions in order, handling dynamic defaults
-    const results: UserInputs = {};
-
-    for (const question of questions) {
-        // Update default if it references other values
-        if (question.initial?.includes('{{') && results.PROJECT_NAME) {
-            question.initial = question.initial.replace('{{PROJECT_NAME}}', results.PROJECT_NAME);
-        }
-
-        const response = await prompts(question);
-
-        if (response[question.name] === undefined) {
-            return null; // User cancelled
-        }
-
-        results[question.name] = response[question.name];
+        return customResponse.customPackageName || null;
     }
 
-    return results;
+    return response.packageName;
 }
 
 async function downloadTemplate(repoName: string, targetDir: string): Promise<void> {
@@ -285,8 +324,8 @@ async function processFiles(targetDir: string, userInputs: UserInputs): Promise<
             try {
                 const content = await fs.readFile(filePath, 'utf-8');
                 for (const key of Object.keys(userInputs)) {
-                    const placeholder = `{{${key}}}`;
-                    const matches = content.match(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'));
+                    // Search for the exact key
+                    const matches = content.match(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'));
                     if (matches) {
                         placeholderStats[key].count += matches.length;
                     }
@@ -365,22 +404,75 @@ async function processFile(filePath: string, userInputs: UserInputs): Promise<bo
         let content = await fs.readFile(filePath, 'utf-8');
         let hasChanges = false;
 
-        // Replace all placeholders
-        for (const [key, value] of Object.entries(userInputs)) {
-            const placeholder = `{{${key}}}`;
-            if (content.includes(placeholder)) {
-                // Handle special cases
-                let replacement = value;
+        // Special handling for package.json
+        if (path.basename(filePath) === 'package.json') {
+            // Parse package.json to handle it properly
+            try {
+                const packageJson = JSON.parse(content);
 
-                if (key === 'KEYWORDS' && typeof value === 'string') {
-                    // Convert comma-separated string to JSON array for package.json
-                    if (filePath.endsWith('package.json')) {
-                        const keywords = value.split(',').map(k => k.trim()).filter(k => k);
-                        replacement = JSON.stringify(keywords).slice(1, -1); // Remove outer brackets
-                    }
+                // Replace package name
+                if (packageJson.name && userInputs.PACKAGE_NAME) {
+                    packageJson.name = userInputs.PACKAGE_NAME;
+                    hasChanges = true;
                 }
 
-                content = content.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacement);
+                // Replace author
+                if (packageJson.author && userInputs.USERNAME) {
+                    packageJson.author = userInputs.USERNAME;
+                    hasChanges = true;
+                }
+
+                // Set keywords based on project name and make it TypeScript-related
+                if (packageJson.keywords) {
+                    packageJson.keywords = [
+                        'typescript',
+                        'javascript',
+                        userInputs.PROJECT_NAME.toLowerCase(),
+                        'utility'
+                    ];
+                    hasChanges = true;
+                }
+
+                // Update repository URL
+                if (packageJson.repository && userInputs.USERNAME && userInputs.PROJECT_NAME) {
+                    if (typeof packageJson.repository === 'string') {
+                        packageJson.repository = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}`;
+                    } else if (packageJson.repository.url) {
+                        packageJson.repository.url = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}`;
+                    }
+                    hasChanges = true;
+                }
+
+                // Update bugs URL
+                if (packageJson.bugs && userInputs.USERNAME && userInputs.PROJECT_NAME) {
+                    if (typeof packageJson.bugs === 'string') {
+                        packageJson.bugs = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}/issues`;
+                    } else if (packageJson.bugs.url) {
+                        packageJson.bugs.url = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}/issues`;
+                    }
+                    hasChanges = true;
+                }
+
+                // Update homepage
+                if (packageJson.homepage && userInputs.USERNAME && userInputs.PROJECT_NAME) {
+                    packageJson.homepage = `https://github.com/${userInputs.USERNAME}/${userInputs.PROJECT_NAME}#readme`;
+                    hasChanges = true;
+                }
+
+                if (hasChanges) {
+                    content = JSON.stringify(packageJson, null, 2);
+                }
+
+            } catch (parseError) {
+                // If JSON parsing fails, fall back to string replacement
+                console.warn(chalk.yellow(`⚠ Warning: Could not parse package.json, using string replacement`));
+            }
+        }
+
+        // Standard string replacement for all files (including non-JSON parts)
+        for (const [key, value] of Object.entries(userInputs)) {
+            if (content.includes(key)) {
+                content = content.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
                 hasChanges = true;
             }
         }
@@ -431,7 +523,8 @@ async function hasExistingFiles(dir: string): Promise<boolean> {
             !item.startsWith('.') &&
             item !== 'node_modules' &&
             item !== 'package-lock.json' &&
-            item !== 'yarn.lock'
+            item !== 'yarn.lock' &&
+            item !== 'pnpm-lock.yaml'
         );
         return relevantFiles.length > 0;
     } catch {

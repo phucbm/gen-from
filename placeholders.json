@@ -1,44 +1,14 @@
 [
   {
-    "key": "PROJECT_NAME",
-    "prompt": "Project directory name:",
-    "default": "my-project",
-    "required": true
-  },
-  {
-    "key": "PACKAGE_NAME",
-    "prompt": "NPM package name (e.g., @username/package-name):",
-    "default": "@your-username/{{PROJECT_NAME}}",
-    "required": true
-  },
-  {
     "key": "USERNAME",
     "prompt": "GitHub username:",
     "default": "your-username",
     "required": true
   },
   {
-    "key": "AUTHOR_NAME",
-    "prompt": "Author name:",
-    "default": "Your Name",
+    "key": "PROJECT_NAME",
+    "prompt": "Project name (repo name):",
+    "default": "my-project",
     "required": true
-  },
-  {
-    "key": "DESCRIPTION",
-    "prompt": "Package description:",
-    "default": "A TypeScript utility package",
-    "required": true
-  },
-  {
-    "key": "KEYWORDS",
-    "prompt": "Keywords (comma-separated):",
-    "default": "typescript,utility",
-    "required": false
-  },
-  {
-    "key": "LICENSE",
-    "prompt": "License:",
-    "default": "MIT",
-    "required": false
   }
 ]
