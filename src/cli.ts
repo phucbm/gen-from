@@ -32,6 +32,13 @@ interface UserInputs {
     [key: string]: string;
 }
 
+interface PlaceholderStats {
+    [key: string]: {
+        count: number;
+        replacement: string;
+    };
+}
+
 async function main() {
     console.log(chalk.cyan('🚀 Welcome to gen-from!'));
     console.log(chalk.dim('Generate projects from GitHub template repositories\n'));
@@ -39,6 +46,14 @@ async function main() {
     try {
         // Parse command line arguments
         const args = process.argv.slice(2);
+
+        // Handle version command
+        if (args.includes('--version') || args.includes('-v')) {
+            const pkg = await fs.readJson(path.join(__dirname, '..', 'package.json'));
+            console.log(pkg.version);
+            process.exit(0);
+        }
+
         const templateArg = args[0];
         const isHereFlag = args.includes('--here');
 
@@ -66,8 +81,22 @@ async function main() {
         // Determine target directory
         const targetDir = isHereFlag ? '.' : userInputs.PROJECT_NAME;
 
+        // Check for existing files and prompt for replacement
         if (!isHereFlag && await fs.pathExists(targetDir)) {
-            throw new Error(`Directory ${targetDir} already exists`);
+            const shouldReplace = await promptForReplacement(targetDir);
+            if (!shouldReplace) {
+                console.log(chalk.yellow('❌ Operation cancelled'));
+                process.exit(0);
+            }
+        } else if (isHereFlag) {
+            const hasFiles = await hasExistingFiles('.');
+            if (hasFiles) {
+                const shouldReplace = await promptForReplacement('.', true);
+                if (!shouldReplace) {
+                    console.log(chalk.yellow('❌ Operation cancelled'));
+                    process.exit(0);
+                }
+            }
         }
 
         // Download template
@@ -119,16 +148,27 @@ async function loadConfig(): Promise<Config> {
 
 async function selectTemplate(templates: Template[], templateArg?: string): Promise<Template | null> {
     if (templateArg) {
-        const found = templates.find(t => t.name === templateArg || t.repo === templateArg);
-        if (!found) {
-            console.log(chalk.red(`❌ Template "${templateArg}" not found`));
-            console.log(chalk.yellow('Available templates:'));
-            templates.forEach(t => {
-                console.log(`  • ${chalk.cyan(t.name)} - ${chalk.dim(t.description)}`);
-            });
-            return null;
+        // Check if it's a user/repo format or just repo name
+        let repoPath: string;
+        if (templateArg.includes('/')) {
+            repoPath = templateArg;
+        } else {
+            // Default to phucbm/ prefix for backward compatibility
+            repoPath = `phucbm/${templateArg}`;
         }
-        return found;
+
+        // Try to find in templates list first
+        const found = templates.find(t => t.name === templateArg || t.repo === templateArg || t.repo === repoPath);
+        if (found) {
+            return found;
+        }
+
+        // If not in templates list, create a template object for the repo
+        return {
+            name: templateArg,
+            description: `Template from ${repoPath}`,
+            repo: repoPath
+        };
     }
 
     // Show template selection
@@ -222,16 +262,70 @@ async function downloadTemplate(repoName: string, targetDir: string): Promise<vo
 }
 
 async function processFiles(targetDir: string, userInputs: UserInputs): Promise<void> {
-    console.log(chalk.dim('Processing template files...'));
+    console.log(chalk.dim('\nProcessing template files...'));
 
     // Get all files recursively
     const files = await getAllFiles(targetDir);
 
-    for (const filePath of files) {
-        await processFile(filePath, userInputs);
+    // First pass: count placeholders across all files
+    const placeholderStats: PlaceholderStats = {};
+
+    for (const [key, value] of Object.entries(userInputs)) {
+        placeholderStats[key] = {
+            count: 0,
+            replacement: value
+        };
     }
 
-    console.log(chalk.green('✓ Files processed'));
+    // Count placeholders in all files
+    for (const filePath of files) {
+        if (!isBinaryFile(filePath)) {
+            try {
+                const content = await fs.readFile(filePath, 'utf-8');
+                for (const key of Object.keys(userInputs)) {
+                    const placeholder = `{{${key}}}`;
+                    const matches = content.match(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'));
+                    if (matches) {
+                        placeholderStats[key].count += matches.length;
+                    }
+                }
+            } catch (error) {
+                // Skip files that can't be read
+            }
+        }
+    }
+
+    // Show placeholder replacement summary
+    console.log(chalk.yellow('\nPlaceholder replacement summary:'));
+    let hasReplacements = false;
+
+    for (const [key, stats] of Object.entries(placeholderStats)) {
+        if (stats.count > 0) {
+            console.log(chalk.cyan(`  ${key}`) + chalk.dim(` => Found ${stats.count} occurrence${stats.count === 1 ? '' : 's'} => Replacing with `) + chalk.green(`"${stats.replacement}"`));
+            hasReplacements = true;
+        }
+    }
+
+    if (!hasReplacements) {
+        console.log(chalk.dim('  No placeholders found in template files'));
+    }
+
+    console.log(''); // Empty line for spacing
+
+    // Second pass: actually replace the placeholders
+    let filesProcessed = 0;
+    for (const filePath of files) {
+        const wasModified = await processFile(filePath, userInputs);
+        if (wasModified) {
+            filesProcessed++;
+        }
+    }
+
+    if (hasReplacements && filesProcessed > 0) {
+        console.log(chalk.green(`✓ ${filesProcessed} file${filesProcessed === 1 ? '' : 's'} processed`));
+    } else {
+        console.log(chalk.green('✓ Template files copied'));
+    }
 }
 
 async function getAllFiles(dir: string): Promise<string[]> {
@@ -259,11 +353,11 @@ async function getAllFiles(dir: string): Promise<string[]> {
     return files;
 }
 
-async function processFile(filePath: string, userInputs: UserInputs): Promise<void> {
+async function processFile(filePath: string, userInputs: UserInputs): Promise<boolean> {
     try {
         // Skip binary files
         if (isBinaryFile(filePath)) {
-            return;
+            return false;
         }
 
         let content = await fs.readFile(filePath, 'utf-8');
@@ -292,8 +386,11 @@ async function processFile(filePath: string, userInputs: UserInputs): Promise<vo
         if (hasChanges) {
             await fs.writeFile(filePath, content, 'utf-8');
         }
+
+        return hasChanges;
     } catch (error) {
         console.warn(chalk.yellow(`⚠ Warning: Could not process file ${filePath}: ${error}`));
+        return false;
     }
 }
 
@@ -307,6 +404,37 @@ function isBinaryFile(filePath: string): boolean {
 
     const ext = path.extname(filePath).toLowerCase();
     return binaryExtensions.includes(ext);
+}
+
+async function promptForReplacement(targetPath: string, isCurrentDir = false): Promise<boolean> {
+    const message = isCurrentDir
+        ? 'Current directory contains files. This will overwrite existing files. Continue?'
+        : `Directory "${targetPath}" already exists. This will overwrite existing files. Continue?`;
+
+    const response = await prompts({
+        type: 'confirm',
+        name: 'replace',
+        message,
+        initial: false
+    });
+
+    return response.replace || false;
+}
+
+async function hasExistingFiles(dir: string): Promise<boolean> {
+    try {
+        const items = await fs.readdir(dir);
+        // Filter out hidden files and common non-project files
+        const relevantFiles = items.filter(item =>
+            !item.startsWith('.') &&
+            item !== 'node_modules' &&
+            item !== 'package-lock.json' &&
+            item !== 'yarn.lock'
+        );
+        return relevantFiles.length > 0;
+    } catch {
+        return false;
+    }
 }
 
 main().catch(console.error);
