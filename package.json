@@ -1,6 +1,6 @@
 {
   "name": "gen-from",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "CLI tool to generate projects from GitHub template repositories",
   "type": "module",
   "bin": {

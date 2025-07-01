@@ -10,12 +10,13 @@ import degit from "tiged";
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path.dirname(__filename);
 async function main() {
-  console.log(chalk.cyan("\u{1F680} Welcome to gen-from!"));
-  console.log(chalk.dim("Generate projects from GitHub template repositories\n"));
+  const pkg = await fs.readJson(path.join(__dirname, "..", "package.json"));
+  console.log(chalk.cyan(`\u{1F680} Welcome to gen-from v${pkg.version}!`));
+  console.log(chalk.dim(`${pkg.description}
+`));
   try {
     const args = process.argv.slice(2);
     if (args.includes("--version") || args.includes("-v")) {
-      const pkg = await fs.readJson(path.join(__dirname, "..", "package.json"));
       console.log(pkg.version);
       process.exit(0);
     }
