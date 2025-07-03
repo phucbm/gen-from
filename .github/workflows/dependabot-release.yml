@@ -1,7 +1,7 @@
 name: Dependabot Release
 
 on:
-  pull_request:
+  pull_request_target:
     types: [ closed ]
     branches: [ main ]
   workflow_dispatch: # Enables manual trigger via GitHub web
