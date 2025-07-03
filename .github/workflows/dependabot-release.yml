@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write  # To create tags and releases
 
+concurrency:
+  group: dependabot-release-${{ github.ref }}
+  cancel-in-progress: true  # Cancel previous runs when new one starts
+
 jobs:
   release:
     runs-on: ubuntu-latest
