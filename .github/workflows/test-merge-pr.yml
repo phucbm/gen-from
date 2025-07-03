@@ -20,3 +20,4 @@ jobs:
         uses: phucbm/test-pr-action@v1
         with:
           dependabot-auto-merge: 'true'  # Optional: auto-merge Dependabot PRs
+          personal-access-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
