@@ -19,5 +19,5 @@ jobs:
       - name: Test and merge PR # https://github.com/marketplace/actions/test-pr-action
         uses: phucbm/test-pr-action@main
         with:
-          personal-access-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          personal-access-token: 'token-test'
           dependabot-auto-merge: 'false'  # Optional: auto-merge Dependabot PRs
