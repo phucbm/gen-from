@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Test and merge PR # https://github.com/marketplace/actions/test-pr-action
-        uses: phucbm/test-pr-action@v1
+        uses: phucbm/test-pr-action@main
         with:
           personal-access-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           dependabot-auto-merge: 'false'  # Optional: auto-merge Dependabot PRs
