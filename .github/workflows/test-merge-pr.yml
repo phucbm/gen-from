@@ -5,6 +5,7 @@ on:
     types: [ opened, synchronize ]
   issue_comment:
     types: [ created ]
+  workflow_dispatch: # Enables manual trigger via GitHub web
 
 permissions:
   contents: write      # To auto-merge PRs
@@ -16,8 +17,24 @@ jobs:
     if: github.event_name == 'pull_request' || contains(github.event.comment.body, '/test')
     runs-on: ubuntu-latest
     steps:
+      - name: Debug secret in current workflow
+        run: |
+          echo "=== Secret Debug Info ==="
+          echo "Secret exists: $([[ -n '${{ secrets.PERSONAL_ACCESS_TOKEN }}' ]] && echo 'YES' || echo 'NO')"
+          echo "Secret length: ${#SECRET_VALUE}"
+          if [[ -n "${SECRET_VALUE}" ]]; then
+            echo "Secret starts with: ${SECRET_VALUE:0:4}..."
+          else
+            echo "Secret is empty!"
+          fi
+          echo "Repository: ${{ github.repository }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Actor: ${{ github.actor }}"
+        env:
+          SECRET_VALUE: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
       - name: Test and merge PR # https://github.com/marketplace/actions/test-pr-action
         uses: phucbm/test-pr-action@main
         with:
-          personal-access-token: 'token-test'
+          personal-access-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           dependabot-auto-merge: 'false'  # Optional: auto-merge Dependabot PRs
