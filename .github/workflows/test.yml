@@ -1,0 +1,17 @@
+name: Test Secret
+on: workflow_dispatch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test secret
+        run: |
+          if [[ -n "${{ secrets.PERSONAL_ACCESS_TOKEN }}" ]]; then
+            echo "✅ Secret exists and has value"
+            echo "Length: ${#SECRET_VALUE}"
+          else
+            echo "❌ Secret is empty or doesn't exist"
+          fi
+        env:
+          SECRET_VALUE: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
