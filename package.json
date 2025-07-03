@@ -46,7 +46,7 @@
     "tiged": "^2.12.7"
   },
   "devDependencies": {
-    "@phucbm/banner": "^0.0.2",
+    "@phucbm/banner": "0.0.1",
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^30.0.0",
     "@types/prompts": "^2.4.9",
